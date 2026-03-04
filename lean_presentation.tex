@@ -1,0 +1,529 @@
+\documentclass[aspectratio=169, 10pt]{beamer}
+
+% Theme selection
+\usetheme{metropolis} % Clean, modern, default light theme
+
+% Packages
+\usepackage{listings} % Replaced minted with listings due to local version conflict
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{xcolor}
+\usepackage{tikz}
+
+% Define colors
+\definecolor{codebg}{RGB}{245, 245, 245}
+\definecolor{keywordcolor}{RGB}{204, 102, 0}
+\definecolor{stringcolor}{RGB}{0, 153, 51}
+\definecolor{commentcolor}{RGB}{120, 120, 120}
+
+% Configure listings for Python/Text
+\lstset{
+    backgroundcolor=\color{codebg},
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    keywordstyle=\color{keywordcolor}\bfseries,
+    stringstyle=\color{stringcolor},
+    commentstyle=\color{commentcolor}\itshape,
+    showstringspaces=false,
+    frame=single,
+    rulecolor=\color{codebg},
+    xleftmargin=1em,
+    tabsize=4
+}
+
+\title{Demystifying the Lean Theorem Prover}
+\subtitle{Reconstructing the Curry-Howard Correspondence via Pure Functional Programming in Python}
+\author{Anuj Jha} % Placeholder for student name
+\date{\today}
+\institute{SLP: Prof. Sudarshan Vijay}
+
+\begin{document}
+
+\maketitle
+
+% -----------------------------------------------------------------------------
+\begin{frame}{Agenda}
+    \tableofcontents
+\end{frame}
+
+% -----------------------------------------------------------------------------
+\section{1. The Philosophy: Proofs as Programs}
+
+\begin{frame}{The Core Principle}
+    \begin{quote}
+        ``Functional programming is one input, one output per function.''
+    \end{quote}
+    \vspace{1em}
+    
+    My goal with this project was to understand how modern interactive theorem provers like Lean 4 actually work under the hood. 
+    
+    What I discovered is that \textbf{Lean's proof system is exactly this concept applied to mathematics.}
+    
+    \vspace{1em}
+    Instead of viewing a proof as a sequence of logical deduction steps, we view a tactic as a pure function:
+    \begin{center}
+    \texttt{tactic : ProofState $\rightarrow$ ProofState}
+    \end{center}
+\end{frame}
+
+\begin{frame}{The Curry-Howard Correspondence}
+    Why does this work? Because proving a mathematical theorem is literally identical to compiling a computer program.
+    
+    \vspace{1em}
+    \begin{table}
+        \centering
+        \begin{tabular}{ll}
+            \toprule
+            \textbf{Mathematics / Logic} & \textbf{Type Theory / Programming} \\
+            \midrule
+            Proposition (e.g. $2+2=4$) & Type \\
+            Proof & A valid value of that type \\
+            Tactic & Function that constructs the value \\
+            "Q.E.D." (Verification) & Type-Checker accepting the program \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+    \vspace{1em}
+    When Lean says "Goals accomplished," it just means the program type-checked successfully.
+\end{frame}
+
+% -----------------------------------------------------------------------------
+\section{2. Simulating the Lean Kernel in Python}
+
+\begin{frame}[fragile]{Expressions as Tagged Trees}
+    In Lean 4, ALL mathematical expressions are represented dynamically as an \texttt{Expr} tree. Since Python lacks algebraic data types, I successfully simulated this using \textbf{immutable tagged tuples}.
+
+\begin{lstlisting}[language=Python]
+# Constructors (pure functions that build syntax trees)
+def succ(n):   return ("succ", n)                  # S(n)
+def add(a, b): return ("add", a, b)                # a + b
+def eq(a, b):  return ("eq", a, b)                 # a = b
+def le(a, b):  return ("le", a, b)                 # a <= b
+
+# Destructors (For programmatic Pattern Matching)
+def is_add(t):   return t[0] == "add"
+def left_of(t):  return t[1]
+def right_of(t): return t[2]
+\end{lstlisting}
+
+    To construct the goal $2 + 2 = 4$:
+    \\\texttt{goal = eq(add(two(), two()), four())}
+\end{frame}
+
+\begin{frame}[fragile]{The Variable Naming Problem (Concept)}
+    A major challenge in math engines is variable names. To a human, \texttt{fun x $\rightarrow$ x} is identical to \texttt{fun y $\rightarrow$ y}. 
+    
+    But to a computer, comparing the letters 'x' and 'y' means they look completely different!
+    
+    \vspace{1em}
+    \textbf{The Solution: De Bruijn Indices} \\
+    Instead of giving variables names, we just give them \textbf{directions}. 
+    
+    A variable simply becomes: \textit{"I am the variable defined $N$ layers above me."}
+\end{frame}
+
+\begin{frame}[fragile]{De Bruijn Indices: A Simple Visual}
+    We replace names with "arrows" pointing up to their creator.
+    
+    \vspace{1em}
+    \begin{itemize}
+        \item \texttt{fun x $\rightarrow$ x} simply becomes \texttt{fun $\rightarrow$ (Variable 0 layers up)}
+        \item \texttt{fun y $\rightarrow$ y} simply becomes \texttt{fun $\rightarrow$ (Variable 0 layers up)}
+    \end{itemize}
+    
+    \vspace{1em}
+    Because both functions use exactly the same directions, the computer instantly knows they are mathematically identical! We never have to worry about accidentally mixing up variable names again.
+\end{frame}
+
+\begin{frame}[fragile]{Handling Alpha-Equivalence: De Bruijn Indices}
+    A major challenge in building a theorem prover is variable shadowing. How does the kernel know \texttt{fun x $\rightarrow$ x} is identical to \texttt{fun y $\rightarrow$ y}?
+    
+    \vspace{0.5em}
+    The solution I studied is the \textbf{De Bruijn Index System}:
+    Instead of names, bounded variables (\texttt{BVar}) use numeric offsets pointing upward to the lambda that bounds them.
+    
+    \vspace{0.5em}
+    \begin{itemize}
+        \item \texttt{fun x $\rightarrow$ x} internally becomes \texttt{lam("x", BVar(0))}
+        \item \texttt{fun y $\rightarrow$ y} internally becomes \texttt{lam("y", BVar(0))}
+    \end{itemize}
+    
+    \vspace{0.5em}
+    \textbf{The Result:} Structural hashing entirely ignores the pretty-printing names ("x", "y"). These trees hash to the exact same pointer in memory natively!
+\end{frame}
+
+\begin{frame}[fragile]{De Bruijn Indices in Nested Scopes}
+    How does this scaling representation work for complex math with multiple variables? The index simply counts how many $\lambda$-binders you must "jump over" going up the AST.
+    
+    \vspace{1em}
+    Consider the standard math expression: \texttt{fun x $\rightarrow$ fun y $\rightarrow$ x (y x)}
+    
+    \vspace{1em}
+    De Bruijn internal representation:
+    \begin{center}
+    \texttt{lam("x", lam("y", App(BVar(1), App(BVar(0), BVar(1)))))}
+    \end{center}
+    
+    \vspace{1em}
+    \begin{itemize}
+        \item \texttt{BVar(0)} points to the innermost binder (\texttt{y}).
+        \item \texttt{BVar(1)} skips \texttt{y} and points to the outer binder (\texttt{x}).
+    \end{itemize}
+    This eliminates all alpha-renaming bugs from the Kernel entirely!
+\end{frame}
+
+\begin{frame}[fragile]{Rewrite Rules = Pattern-Matching Functions}
+    I implemented rewrite rules strictly as purely functional mappings: \texttt{term $\rightarrow$ term | None}. They search for a structural pattern and construct a new AST branch.
+    
+\begin{lstlisting}[language=Python]
+def add_succ_rule(term):
+    """ Implementing the Peano Axiom: (a + S(b)) -> S(a + b) """
+    if is_add(term) and is_succ(right_of(term)):
+        
+        a = left_of(term)
+        b = pred_of(right_of(term))  
+        
+        # Return cleanly constructed new tuple
+        return succ(add(a, b))       
+    return None
+\end{lstlisting}
+
+    Notice there is no state mutation. This guarantees mathematical purity.
+\end{frame}
+
+\begin{frame}[fragile]{Tactics as Higher-Order Closures}
+    To simulate a tactic like Lean's \texttt{rw}, I used \textbf{closures} that take a mathematical rule and return a state transition function.
+    
+\begin{lstlisting}[language=Python]
+def nth_rewrite(n, rule, name):
+    """
+    Returns a closure that performs DFS traversal, applying the rule 
+    to exactly the Nth occurrence it finds.
+    """
+    def tactic(goal):
+        return apply_nth(goal, rule, n)
+    tactic._lean = f"nth_rewrite {n} [{name}]"
+    
+    # Returning the higher-order function composition
+    return tactic   
+\end{lstlisting}
+\end{frame}
+
+
+% -----------------------------------------------------------------------------
+\section{3. Case Study 1: Proving Addition}
+
+\begin{frame}[fragile]{Proving 2 + 2 = 4: The Initial State}
+    Let's walk through how my simulation evaluates $2 + 2 = 4$, replicating Lean's behavior exactly.
+    
+    \vspace{1em}
+    \textbf{Initial Goal Tree:} 
+    \texttt{eq( add(2, 2), 4 )}
+    
+    \vspace{1em}
+    \textbf{The DFS Trap:} \\
+    If we just write \texttt{rw [two\_eq\_succ\_one]}, the DFS traversal hits the VERY FIRST \texttt{2} it finds—the \textbf{left} operand.
+    
+    Our tree becomes: \texttt{eq( add(S(1), 2), 4 )} $\implies S(1) + 2$
+\end{frame}
+
+\begin{frame}[fragile]{Proving 2 + 2 = 4: The Peano Mismatch}
+    Why is $S(1) + 2$ a problem?
+    
+    \vspace{1em}
+    Look at the Peano addition axiom (\texttt{add\_succ}):
+    \begin{center}
+    \Large $a + S(b) \rightarrow S(a + b)$
+    \end{center}
+    
+    \vspace{1em}
+    This rule \textbf{ONLY} matches if the \textbf{right} operand has an $S$. It doesn't know what to do with an $S$ on the \textbf{left}! If we unfold the left side, the proof gets completely stuck.
+\end{frame}
+
+\begin{frame}[fragile]{Proving 2 + 2 = 4: The Solution}
+    We must use \texttt{nth\_rewrite 2}! This forces the engine to bypass the left operand and target the \textbf{second} DFS occurrence.
+    
+    \vspace{1em}
+    \textbf{Step 1:} \texttt{nth\_rewrite(2, two\_eq\_succ\_one)}
+    \begin{itemize}
+        \item Target the right operand: \texttt{eq( add(2, S(1)), 4 )}
+    \end{itemize}
+    
+    \vspace{1em}
+    \textbf{Step 2:} \texttt{rw(add\_succ\_rule)}
+    \begin{itemize}
+        \item The rule sees the $S$ on the right, and "wraps" it around the addition!
+        \item Tree becomes: \texttt{eq( succ(add(2, 1)), 4 )}
+    \end{itemize}
+    
+    This exact peeling process continues 5 more times until we reach \texttt{succ(succ(2)) = 4}.
+\end{frame}
+
+% -----------------------------------------------------------------------------
+\section{4. Case Study 2: Multiplication \& Decomposition}
+
+\begin{frame}[fragile]{Multiplication is Cascading Addition}
+    Multiplication is defined by structural recursion strictly on the right operand:
+    
+    \begin{equation*}
+    a \times 0 = 0
+    \end{equation*}
+    \begin{equation*}
+    a \times \mathrm{succ}(b) = (a \times b) + a
+    \end{equation*}
+    
+    The axiom \texttt{mul\_succ} forces multiplication to decompose into addition subproblems.
+    \begin{align*}
+        2 \times 2 &= 2 \times S(1) \\
+                   &= (2 \times 1) + 2 \\
+                   &= ((2 \times 0) + 2) + 2 \\
+                   &= (0 + 2) + 2
+    \end{align*}
+\end{frame}
+
+\begin{frame}[fragile]{Proof Length Asymmetry}
+    \textbf{Why does proving $2 \times 2 = 4$ take 19 recursive rewriting steps in my simulation?} \\
+    Because proving $(0 + 2) + 2 = 4$ requires cascading applications of \texttt{add\_succ} peeling both \texttt{2} variables apart simultaneously.
+    
+    \vspace{1em}
+    \textbf{A key finding: Commutativity is computationally expensive!}
+    Because \texttt{mul\_succ} recurses solely on the \textbf{right}:
+    \begin{itemize}
+        \item Proving $2 \times 1 = 2$ requires just 10 functional composing steps.
+        \item Proving $1 \times 2 = 2$ requires 13 functional composing steps.
+    \end{itemize}
+    
+    Mathematically they are identical. Computationally, their proof structures are entirely distinct.
+\end{frame}
+
+% -----------------------------------------------------------------------------
+\section{5. Case Study 3: Inequality and Existentials}
+
+\begin{frame}[fragile]{What Actually is an Inequality? (Concept)}
+    How do you mathematically prove that $1 \le 2$? 
+    
+    \vspace{1em}
+    In Lean, saying $A \le B$ simply means: \textbf{"There is some GAP number I can add to $A$ to reach $B$."}
+    \begin{center}
+        \Large $1 \le 2 \implies 1 + \text{gap} = 2$
+    \end{center}
+
+    \vspace{1em}
+    By defining it this way, if you tell the engine what the gap is, you transform a scary inequality into a simple addition equation!
+\end{frame}
+
+\begin{frame}[fragile]{Proving Transitivity: $1 \le 2 \land 2 \le 4 \implies 1 \le 4$}
+    Imagine mathematical hypotheses as literal \textbf{packages} handed to you. 
+    
+    \vspace{1em}
+    \textbf{Step 1: Unpacking (\texttt{cases} tactic)} \\
+    We use the \texttt{cases} tactic to open our packages.
+    \begin{itemize}
+        \item Opening the $1 \le 2$ package gives us: a gap of \textbf{1}, and the equation $(2 = 1 + 1)$.
+        \item Opening the $2 \le 4$ package gives us: a gap of \textbf{2}, and the equation $(4 = 2 + 2)$.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Proving Transitivity: Packing it back up}
+    \textbf{Step 2: Packing (\texttt{use} tactic)} \\
+    Now we need to prove our final goal: $1 \le 4$.
+    
+    We just have to provide the total gap! We use the \texttt{use} tactic to say: \textit{"The new gap is just our two old gaps added together!"} ($1 + 2 = \mathbf{3}$).
+    
+    \vspace{1em}
+    Our intimidating $1 \le 4$ goal instantly transforms into:
+    \begin{center}
+        \Large $4 = 1 + \mathbf{3}$
+    \end{center}
+    
+    We then substitute the equations we unpacked to prove this equation is mathematically true!
+\end{frame}
+
+\begin{frame}[fragile]{How is $\le$ ACTUALLY defined?}
+    In Lean's Natural Number Game (NNG4), $a \le b$ is not a primitive base truth. It is mathematically defined via an existential type:
+    \begin{equation*}
+        a \le b \iff \exists c, \; b = a + c
+    \end{equation*}
+
+    To prove an inequality, we must provide the "witness" (the numerical gap $c$). By doing so, we essentially translate a complex inequality problem into a simple equality problem that \texttt{rw} can solve!
+
+    In my architecture, the \texttt{use} tactic transforms the inequality goal directly into an equality by injecting this witness.
+
+\begin{lstlisting}[language=Python]
+def use(witness, name):
+    """ a <= b --> b = a + witness """
+    def tactic(goal):
+        a = left_of(goal)
+        b = right_of(goal)
+        return eq(b, add(a, witness))
+    return tactic
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{The Flagship Proof: \texttt{le\_trans} (Modelling Hypotheses)}
+    \textbf{Theorem:} \texttt{If 1 <= 2 and 2 <= 4, then 1 <= 4} 
+    
+    This proof is significantly more advanced because it requires \textbf{Hypotheses}. A theorem is actually just a function taking the assumptions as arguments. Here, the arguments are \texttt{hxy: 1 <= 2} and \texttt{hyz: 2 <= 4}.
+    
+    I simulated this environment by passing a \texttt{hyps} dictionary payload alongside the goal state throughout the proof timeline:
+
+\begin{lstlisting}[language=Python]
+    def proof_le_trans():
+        hyps = {
+            "hxy": le(one(), two()),    # Granted Hypothesis 1
+            "hyz": le(two(), four()),   # Granted Hypothesis 2
+        }
+        goal = le(one(), four())        # Target Goal
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Destructuring Existentials with \texttt{cases}}
+    How do we resolve the \texttt{cases} tactic destructuring hypotheses? 
+    It executes as a data-manipulating function on the hypothesis dictionary!
+
+    When we call \texttt{cases hxy with a ha}, we are telling the proof state: "Take the fact that $1 \le 2$, give me the gap integer ($a$), and give me the new guaranteed equation ($ha$)."
+
+\begin{lstlisting}[language=Python, basicstyle=\ttfamily\scriptsize]
+    # Step 1: cases hxy with a ha
+    # Destructs (1<=2) into witness a=1, equation ha: 2=1+1
+    def step_cases_hxy(goal, hyps):
+        hyps = dict(hyps)
+        del hyps["hxy"]  # The old existential hypothesis is consumed
+        
+        # Inject the inner components of the existential back into scope
+        hyps["a"]  = one()
+        hyps["ha"] = eq(two(), add(one(), one()))
+        return goal, hyps
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Bridging the Gap: The \texttt{use} tactic}
+    After extracting BOTH witnesses from the hypotheses (we got $a=1$ from $1 \le 2$, and $b=2$ from $2 \le 4$), we must combine them to prove the final goal.
+    
+    To prove $1 \le 4$, we use the combination $(a + b)$ as our new witness! Since $a=1$ and $b=2$, our combined witness is $3$.
+
+\begin{lstlisting}[language=Python]
+    # Step 3: use a + b (combining witnesses)
+    def step_use_ab(goal, hyps):
+        a, b = hyps["a"], hyps["b"]
+        x, z = left_of(goal), right_of(goal)
+        
+        # Inequality Goal (1 <= 4) structurally transforms into:
+        # 4 = 1 + (1 + 2)
+        return eq(z, add(x, add(a, b))), hyps  
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Hypotheses as Runtime Rewrite Rules}
+    Our goal is now \texttt{4 = 1 + (1 + 2)}. How do we verify this? We rewrite the Goal using the actual mathematical data stored inside the hypotheses!
+
+\begin{lstlisting}[language=Python, basicstyle=\ttfamily\scriptsize]
+    # Step 4: rw [hb]  
+    # Using the hypothesis `hb: 4=2+2` to rewrite 4 in the goal
+    def step_rw_hb(goal, hyps):
+        # Goal transitions from: 4 = ... to: (2 + 2) = ...
+        return eq(add(two(), two()), rhs_of(goal)), hyps
+
+    # Step 5: rw [ha]  
+    # Using the hypothesis `ha: 2=1+1` to rewrite the leftmost 2
+    def step_rw_ha(goal, hyps):
+        # Goal transitions to: ((1 + 1) + 2) = 1 + (1 + 2)
+        lhs = lhs_of(goal)
+        return eq(add(add(one(), one()), right_of(lhs)), rhs_of(goal)), hyps
+        
+    # Step 6: exact add_assoc 
+    # Terminate by applying the mathematically proven theorem (a+b)+c = a+(b+c)
+    def step_add_assoc(goal, hyps):
+        return eq(rhs_of(goal), rhs_of(goal)), hyps
+\end{lstlisting}
+\end{frame}
+
+% -----------------------------------------------------------------------------
+\section{6. Insights into the Lean 4 Compiler Architecture}
+
+\begin{frame}[fragile]{The Two-Tier Compiler Pipeline}
+    My research into Lean's internals revealed a highly secure separation of concerns:
+    
+    \begin{center}
+    \begin{minipage}{0.85\linewidth}
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+     Source Code (.lean)
+            |
+       [ PARSER ]     Text -> Concrete Syntax Tree
+            |
+     [ ELABORATOR ]   Syntax -> Core `Expr`. (Where Tactics run!)
+            |         Runs `MetaM` Monad, Unification, MetaVariables.
+            |         MASSIVE codebase (500,000+ lines). Expected to have bugs.
+            |
+       [ KERNEL ]     The Trusted Core (~5k lines C++).
+            |         Type-checks the generated proof term.
+            v
+    [ ENVIRONMENT ]   Stores mathematical ground truth permanently.
+\end{lstlisting}
+    \end{minipage}
+    \end{center}
+\end{frame}
+
+\begin{frame}{The de Bruijn Criterion \& Complete Isolation}
+    Why is the architecture bifurcated this way?
+    
+    \vspace{1em}
+    \begin{itemize}
+        \item \textbf{Untrusted Zone:} Tactics, Macros, Parsing, Unification. Allowed to crash, infinite-loop, or have severe logical bugs.
+        \item \textbf{Trusted Kernel:} Tiny, mathematically pure type-checker written in memory-safe C++. Analyzes pure ASTs.
+        \item If an AI or a buggy tactic generates a fake functional composition, the kernel strictly \textbf{rejects the payload} with a type error. (e.g. \texttt{Array Int (2+2)} failing to reduce against \texttt{Array Int (4)}).
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{The Type Checker \& Definitional Computation}
+    Checking types in Dependent Type Theory is Turing-Complete. \\
+    The kernel evaluates expressions via \textbf{Definitional Equality (\texttt{isDefEq})}.
+    
+    \vspace{1em}
+    It features $4$ explicit reduction engine sub-systems:
+    \begin{itemize}
+        \item \textbf{$\beta$ (Beta) Reduction}: Function execution / lambda evaluation.
+        \item \textbf{$\delta$ (Delta) Reduction}: Unfolding definitions (\texttt{double 2 $\rightarrow$ 2 + 2}).
+        \item \textbf{$\zeta$ (Zeta) Reduction}: Resolving let-bindings.
+        \item \textbf{$\iota$ (Iota) Reduction}: Executing Inductive Type \textbf{Recursors} (Pattern matching).
+    \end{itemize}
+\end{frame}
+
+% -----------------------------------------------------------------------------
+\section{Conclusion}
+
+\begin{frame}{Conclusion: The Ultimate Synthesis}
+    \begin{table}
+        \centering
+        \begin{tabular}{ll}
+            \toprule
+            \textbf{FP Concept} & \textbf{Lean Architecture Equivalent} \\
+            \midrule
+            Algebraic Data Types & Tagged Unions (e.g. \texttt{("add", a, b)}) or \texttt{Expr} \\
+            Immutability & Modifying proofs returns strictly new nodes \\
+            Pattern Matching & Destructing Tuples, executing $\iota$-reduction \\
+            Pure Functions & \texttt{goal $\rightarrow$ goal} with zero side effects \\
+            Higher-Order Functions & Tactics returning configuration closures \\
+            Type Systems & The Curry-Howard Theorem Verification boundary \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+    
+    \vspace{1em}
+    \begin{center}
+        \textbf{Lean operates beautifully on a single mathematical principle: \\ Proving a mathematical theorem IS exactly the compilation of a verified program.}
+    \end{center}
+\end{frame}
+
+\begin{frame}{Questions?}
+    \begin{center}
+        \Huge Questions?
+        
+        \vspace{1em}
+        \large Thank you for your time.
+    \end{center}
+\end{frame}
+
+\end{document}
