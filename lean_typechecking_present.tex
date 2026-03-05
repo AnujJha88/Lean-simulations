@@ -1,0 +1,437 @@
+\documentclass[10pt,aspectratio=169]{beamer}
+
+\usetheme[progressbar=frametitle]{metropolis}
+\usepackage{appendixnumberbeamer}
+\usepackage{booktabs}
+\usepackage[scale=2]{ccicons}
+\usepackage{xspace}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{listings}
+\usepackage{xcolor}
+
+\definecolor{lightgray}{rgb}{0.95,0.95,0.95}
+\definecolor{keywordcolor}{rgb}{0.1,0.1,0.8}
+\definecolor{commentcolor}{rgb}{0.3,0.5,0.3}
+
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{keywordcolor}\bfseries,
+    commentstyle=\color{commentcolor}\itshape,
+    backgroundcolor=\color{lightgray},
+    frame=single,
+    rulecolor=\color{lightgray},
+    breaklines=true,
+    showstringspaces=false,
+    tabsize=4
+}
+
+\title{The Architecture of Truth}
+\subtitle{How the Lean 4 Kernel Validates Mathematical Proofs via Dependent Type Checking}
+\date{\today}
+\author{A Ground-Up Reconstruction Guide}
+\institute{SLP: Prof. Sudarshan Vijay}
+
+\begin{document}
+
+\maketitle
+
+\begin{frame}{Agenda}
+    \tableofcontents
+\end{frame}
+
+% -----------------------------------------------------------------------------
+\section{1. The Type Checking Paradox}
+
+\begin{frame}[fragile]{The Professor's Puzzle}
+    \textbf{Question:} \\
+    If \verb|2 + 2| is an integer, and \verb|4| is an integer... then doesn't \verb|2 + 3| also evaluate to an integer? 
+    
+    If they all have the same type (\verb|int|), how does "Type Checking" actually prove that \verb|2 + 2 = 4| is true, while \verb|2 + 3 = 4| is false?
+\end{frame}
+
+\begin{frame}[fragile]{The Simple Type Theory View}
+    In standard programming (Python, Java, C++), type systems are strictly categorical.
+    
+    \begin{lstlisting}[language=Python]
+print(type(2 + 2) == type(4)) # True
+print(type(2 + 3) == type(4)) # True
+    \end{lstlisting}
+    
+    A standard compiler merely validates memory bounds: "Are you passing a string to a function that requires a number?" 
+    
+    Under Simple Type Theory, \textbf{the professor is entirely correct}: \verb|2+3=4| is a perfectly valid, flawlessly typed expression!
+\end{frame}
+
+\begin{frame}[fragile]{Why Simple Types Fail in Mathematics}
+    Mathematical theorems are not simply labels mapping variables to memory chunks. They represent exact structural relationships.
+    
+    If \verb|A = B| just meant "A and B have the same categorical label", the compiler would have no capability to differentiate truth from falsehood.
+    
+    To solve this, Lean abandons Simple Type Theory entirely.
+\end{frame}
+
+\begin{frame}[fragile]{The Solution: Dependent Type Theory}
+    In Lean, the theorem \verb|2 + 2 = 4| is \textbf{not} of type \verb|int| (or \verb|Bool|).
+    
+    \vspace{1em}
+    \textbf{The Theorem IS the Type.}
+    
+    \vspace{1em}
+    Specifically, the theorem is a \textbf{Dependent Type} parameterized by the exact computational expressions taking place: \verb|Eq (add 2 2) (4)|.
+    
+    To pass type checking, the Kernel does not check the argument labels. It checks if your Proof Object successfully inhabits this explicit, mathematically unrolled Type!
+\end{frame}
+
+\begin{frame}[fragile]{Analogy: Buckets vs. Custom Puzzle Pieces}
+    \textbf{Standard Programming (Simple Types):} \\
+    Types are just \textbf{Buckets}. "Is this data in the Integer bucket?" Yes. \verb|2+2| goes in the bucket. \verb|2+3| goes in the bucket.
+    
+    \vspace{1em}
+    \textbf{Lean (Dependent Types):} \\
+    Types are uniquely cut \textbf{Puzzle Holes}. \\
+    The Theorem \verb|2+2=4| is uniquely shaped hole. Your proof is a puzzle piece. \\
+    "Type Checking" is literally just the compiler checking: \textit{"Does the specific puzzle piece you built perfectly click into this exact mathematical hole?"}
+\end{frame}
+
+% -----------------------------------------------------------------------------
+\section{2. The Two-Tier Architecture}
+
+\begin{frame}[fragile]{The de Bruijn Criterion}
+    The defining architectural philosophy of Lean 4 (and Coq/Agda) is the \textbf{de Bruijn Criterion}.
+    
+    The system is strictly bifurcated into two drastically asymmetrical halves:
+    \begin{itemize}
+        \item \textbf{The Untrusted Frontend} (Massive, complex, written in Lean)
+        \item \textbf{The Trusted Kernel} (Minimal, ~5,000 lines of highly optimized C++)
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{The Untrusted Frontend}
+    The frontend is hundreds of thousands of lines of code. It includes:
+    \begin{itemize}
+        \item The Parser and Elaborator
+        \item Macro Expansion
+        \item The Tactic Engine (\verb|rw|, \verb|induction|, etc.)
+        \item Implicit Argument Inference
+    \end{itemize}
+    
+    Crucially: The untrusted frontend is \textbf{expected} to contain bugs. It might crash or loop infinitely. It might even accidentally declare a false theorem "proven"!
+\end{frame}
+
+\begin{frame}[fragile]{Analogy: The Frontend is the Lawyer}
+    Think of the Untrusted Frontend as a \textbf{lawyer}.
+    
+    \vspace{1em}
+    The lawyer researches precedents, builds a massive argument, uses automation tools, and sometimes makes logical leaps or mistakes trying to win the case. 
+    
+    \vspace{1em}
+    But the lawyer doesn't decide what is true. They just compile a massive, final legal brief (the Proof Term) to submit to the judge.
+\end{frame}
+
+\begin{frame}[fragile]{The Trusted Kernel}
+    The Kernel is a monolithic C++ core (\verb|src/kernel|). It performs exactly one task: \textbf{Type Checking}.
+    
+    The frontend's only job is to generate a fully explicit, unambiguous "Proof Term" in a minimal core calculus, and hand it to the Kernel.
+    
+    If the Kernel type-checks it, the theorem is proven. If the frontend suffers a bug and generates a flawed proof, the Kernel ruthlessly rejects it.
+\end{frame}
+
+\begin{frame}[fragile]{Analogy: The Kernel is the Supreme Court}
+    The Kernel is the \textbf{Supreme Court Justice}.
+    
+    \vspace{1em}
+    The Justice takes the lawyer's brief. The Justice doesn't care \textit{how} the lawyer came up with the argument (automation, macros, guessing). 
+    
+    \vspace{1em}
+    The Justice painstakingly reads the brief line-by-line, mechanically verifying if every single deductive step strictly follows the fundamental laws of math. If the lawyer made a mistake, the Justice throws the case out immediately.
+\end{frame}
+
+\begin{frame}[fragile]{The Boundary: Why Bifurcate?}
+    To reconstruct Lean, you only need to build the Kernel correctly. 
+    
+    If the Kernel is sound, the entire system inherits that soundness, regardless of what chaos happens in IDE integrations, automation scripts, or metaprogramming.
+    
+    This rigorous containment model is why Lean holds absolute authority on mathematical truth.
+\end{frame}
+
+% -----------------------------------------------------------------------------
+\section{3. The Core Calculus (CIC)}
+
+\begin{frame}[fragile]{Calculus of Inductive Constructions (CIC)}
+    Lean's Kernel is based on the \textbf{Calculus of Inductive Constructions}.
+    
+    There is no fundamental distinction between types, functions, and values. Everything is an Expression (\verb|Expr|).
+\end{frame}
+
+\begin{frame}[fragile]{Unifying Types and Values}
+    In CIC:
+    \begin{itemize}
+        \item \verb|3| is an \verb|Expr|
+        \item \verb|Nat| (the type of 3) is an \verb|Expr|
+        \item \verb|Type| (the type of Nat) is an \verb|Expr|
+        \item \verb|2 + 2 = 4| is an \verb|Expr| (a proposition type)
+        \item A proof indicating \verb|2 + 2 = 4| is an \verb|Expr|
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{The Curry-Howard Correspondence}
+    This unification is the heartbeat of modern theorem proving:
+    
+    \vspace{1em}
+    \begin{center}
+        \Large \textbf{Proving a Theorem P is literally identical to constructing a program whose Type evaluates to P.}
+    \end{center}
+\end{frame}
+
+\begin{frame}[fragile]{Analogy: The Mathematical Factory}
+    Think of Curry-Howard as a \textbf{Factory}. 
+    
+    \vspace{1em}
+    You want a product (a Theorem, like \verb|1 <= 4|). 
+    
+    Instead of writing the theorem on a whiteboard, you build a physical machine (a Program / Function) that strictly manufactures that product. 
+    
+    \vspace{1em}
+    If the Factory Inspector (Type Checker) turns your machine on, and an object of type \verb|1 <= 4| successfully comes out the conveyor belt without jamming... you have proven the theorem!
+\end{frame}
+
+\begin{frame}[fragile]{The Hierarchy of Universes}
+    If \verb|Type : Type|, the system triggers Girard's paradox (a type-theory Russell's paradox), allowing proofs of \verb|False|.
+    
+    Lean prevents this using an infinite hierarchy of universes (\verb|Level|):
+    \begin{itemize}
+        \item \verb|Sort 0| represents \verb|Prop|
+        \item \verb|Sort 1| represents \verb|Type 0|
+        \item \verb|Sort (u+1)| represents \verb|Type u|
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Prop vs Type}
+    \begin{itemize}
+        \item \textbf{\texttt{Prop} (Sort 0):} The universe of mathematical propositions (\verb|2+2=4|). These undergo "Proof Erasure"—computationally, the content of the proof doesn't matter, only that it exists.
+        \item \textbf{\texttt{Type 0} (Sort 1):} The universe of computational data (\verb|Nat|, \verb|Bool|, \verb|String|). These survive compilation to execute at runtime.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Impredicativity of Prop (\texttt{IMax})}
+    \verb|Prop| is \textbf{impredicative}. 
+    
+    If \verb|B| is a proposition, then the function type \verb|A|\(\rightarrow\)\verb|B| is *also* a proposition, regardless of how massively huge the universe of \verb|A| is! 
+    
+    (e.g., "For all functions in $\mathbb{R}$, $f$ is continuous" is just a standard proposition, despite quantifying over a massive set).
+    
+    The Kernel's \verb|IMax| operator natively encodes this rule to securely construct functional types.
+\end{frame}
+
+% -----------------------------------------------------------------------------
+\section{4. The Expr Abstract Syntax Tree}
+
+\begin{frame}[fragile]{Lean's Internal Fabric}
+    Everything in the Kernel is a node in the \verb|Expr| Abstract Syntax Tree.
+    
+    Lean aggressively memoizes these nodes. If two \verb|Expr| branches are structurally identical, they physically share the exact same hashed pointer in memory!
+\end{frame}
+
+\begin{frame}[fragile]{The \texttt{Expr} Data Structure}
+    The Kernel operates on precisely these pure variants:
+    \begin{itemize}
+        \item \verb|BVar|: Bound Variable
+        \item \verb|FVar|: Free Variable
+        \item \verb|Const|: Global Declaration Reference
+        \item \verb|App|: Function Application
+        \item \verb|Lam|: Lambda Abstraction (\verb|fun x => t|)
+        \item \verb|Forall|: Dependent Tye (\verb|(x:A) -> B|)
+        \item \verb|Sort|: Universe Level
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{The Variable Problem ($\alpha$-equivalence)}
+    A massive system challenge: \verb|fun x => x| is mathematically identical to \verb|fun y => y|. But string names make them look different.
+    
+    Accidental variable capture during substitution is the \#1 cause of bugs in naive theorem provers.
+    
+    Lean solves this by abandoning string names entirely.
+\end{frame}
+
+\begin{frame}[fragile]{Bound Variables \& De Bruijn Indices}
+    \verb|BVar| nodes use \textbf{De Bruijn Indices}. They contain no name. They merely contain an integer pointer tracking how many lambda-binders to "jump over" going upward in the AST.
+    
+    \begin{itemize}
+        \item \verb|fun x => fun y => x (y x)|
+        \item Becomes: \verb|lam( lam( App( BVar(1), App(BVar(0), BVar(1)) ) ) )|
+    \end{itemize}
+    
+    $\alpha$-equivalence instantly becomes identical to raw pointer memory hashing!
+\end{frame}
+
+\begin{frame}[fragile]{Analogy: GPS Directions instead of Names}
+    Imagine telling the computer: "Go to John's house." The computer says: "Who is John? Are there two Johns?"
+    
+    \vspace{1em}
+    De Bruijn indices stop using names and use \textbf{GPS Directions}.
+    
+    \vspace{1em}
+    "Go to the variable defined exactly $N$ layers above me." 
+    
+    Because the route to a variable is physically encoded, two identical equations will always map to the exact same GPS coordinates, proving they are the same equation!
+\end{frame}
+
+\begin{frame}[fragile]{Free Variables (\texttt{FVar})}
+    \verb|FVar|s represent variables in the local proof context (hypotheses) that are \textbf{not} bound by an enclosing lambda.
+    
+    They use globally unique generated UUIDs. This completely mathematically nullifies any chance of accidental capture during substitution by the Kernel.
+\end{frame}
+
+\begin{frame}[fragile]{Metavariables (\texttt{MVar})}
+    \verb|MVar|s (\verb|?m|) represent "holes" that the Frontend Elaborator is trying to guess (unification).
+    
+    \vspace{1em}
+    \textbf{Crucial Security Rule:} \\
+    The Trusted Kernel explicitly \textbf{bans} Metavariables! Before an expression is submitted for type checking, the frontend must instantiate all holes.
+\end{frame}
+
+% -----------------------------------------------------------------------------
+\section{5. Definitional Equality \& Reductions}
+
+\begin{frame}[fragile]{The Core Typechecker API (\texttt{inferType})}
+    The absolute core execution loop of the Kernel. Given an Environment and an \verb|Expr|, it computes the type.
+    
+    \vspace{1em}
+    Signature: \verb|Expr inferType(Expr e, LocalContext lctx)|
+    
+    When evaluating an \verb|App(f, a)|, it computes the type of \verb|f|, the type of \verb|a|, and checks if the argument precisely matches the parameters requirement.
+\end{frame}
+
+\begin{frame}[fragile]{Syntactic vs Definitional Equality}
+    In standard programming, \verb|Array(2+2)| and \verb|Array(4)| trigger type errors because \verb|"2+2"| != \verb|"4"| syntactically.
+    
+    Lean utilizes \textbf{Definitional Equality} (\verb|isDefEq|). It recognizes that computed types can contain logic. It must forcefully compute both sides into a normal form to see if they match structurally!
+\end{frame}
+
+\begin{frame}[fragile]{Analogy: Grinding Coffee Beans}
+    Imagine comparing a bag of "Whole Roast Beans" and a cup of "Liquid Coffee". They look completely different syntactically.
+    
+    \vspace{1em}
+    But Lean's \verb|isDefEq| engine puts both of them through the computational \textbf{grinder}. 
+    
+    \vspace{1em}
+    It aggressively grinds them down to their absolute basic molecular parts. Once they are ground down into primitive molecules, the Kernel puts them under a microscope to see if the cells match mathematically.
+\end{frame}
+
+\begin{frame}[fragile]{The \texttt{isDefEq} Engine}
+    To determine if \verb|Type A == Type B|, the Kernel possesses a Turing-complete Evaluation Engine.
+    
+    It incrementally unleashes four distinct Reduction routines in parallel until a structural hash-match is found.
+\end{frame}
+
+\begin{frame}[fragile]{The Four Reductions: $\beta$ (Beta) \& $\delta$ (Delta)}
+    \begin{itemize}
+        \item \textbf{$\beta$-Reduction:} Function application execution. 
+        \\ \verb|App( Lam(x, t), a )| $\implies$ \verb|t[x := a]|
+        
+        \vspace{1em}
+        \item \textbf{$\delta$-Reduction:} Unfolding transparent definitions.
+        \\ \verb|double 2| $\implies$ \verb|2 + 2|
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{The Four Reductions: $\zeta$ (Zeta) \& $\iota$ (Iota)}
+    \begin{itemize}
+        \item \textbf{$\zeta$-Reduction:} Expanding local \verb|Let| bindings securely inline.
+        
+        \vspace{1em}
+        \item \textbf{$\iota$-Reduction:} Evaluating structural recursion primitives over inductive data types (e.g., Peano numbers, lists).
+        \\ \verb|Nat.rec f_z f_s (succ n)| $\implies$ \verb|f_s n (Nat.rec f_z f_s n)|
+    \end{itemize}
+\end{frame}
+
+% -----------------------------------------------------------------------------
+\section{6. Inductive Data Types}
+
+\begin{frame}[fragile]{Declaring Data Types}
+    When a developer writes \verb|inductive Nat | \verb|| zero | \verb|| succ : Nat -> Nat|, the Kernel validates it for strict positivity to prevent paradoxes.
+\end{frame}
+
+\begin{frame}[fragile]{The Powerful Recursor (\texttt{.rec})}
+    Lean does not have primitive \verb|if/else| or \verb|match| statements in the Kernel!
+    
+    Every inductive type auto-generates a \textbf{Recursor} (\verb|Nat.rec|). Any code utilizing pattern-matching is compiled by the frontend into a massive tree of applications using this pure recursor, which the $\iota$-Reduction engine evaluates natively.
+\end{frame}
+
+\begin{frame}[fragile]{Quotients and Equivalences}
+    To do calculus or modular arithmetic, we must treat mathematically distinct objects identically (e.g., Fraction $1/2 == 2/4$).
+    
+    Lean explicitly hardcodes \verb|Quot| systems into the Kernel. You can only project data out of an equivalence class if you provide a rigorous mathematical proof that your function respects the relation!
+\end{frame}
+
+% -----------------------------------------------------------------------------
+\section{7. Resolving the Professor's Puzzle}
+
+\begin{frame}[fragile]{Step 1: The Equation is a Type}
+    Let's return to the puzzle: How does type checking prove \verb|2 + 2 = 4|, but reject \verb|2 + 3 = 4|?
+    
+    \vspace{1em}
+    Remember, the Kernel does not check if they evaluate to \verb|int|. 
+    
+    It checks if the generated proof cleanly inhabits the Dependent Type:
+    \begin{center}
+        \Large \texttt{Eq( Add(2, 2) , 4 )}
+    \end{center}
+\end{frame}
+
+\begin{frame}[fragile]{Step 2: Evaluating \texttt{Eq(Add(2,2), 4)}}
+    The Kernel calls \verb|isDefEq( Add(2,2) , 4 )|.
+    
+    1. It unleashes $\delta$ and $\iota$ reductions on the Left Side. The Peano axioms unroll \verb|Add(2,2)| down to the primitive data tree: \verb|S(S(S(S(Z))))|.
+    
+    2. It subjects the Right Side to the same grinder. \verb|4| breaks down to \verb|S(S(S(S(Z))))|.
+\end{frame}
+
+\begin{frame}[fragile]{Step 3: Success! Identity Verified}
+    3. The Kernel hashes the two primitive memory trees.
+    
+    \vspace{1em}
+    \begin{center}
+        \Large \texttt{S(S(S(S(Z)))) == S(S(S(S(Z))))}
+    \end{center}
+    
+    \vspace{1em}
+    They match perfectly! The Definitional Equality check passes. The type is legally inhabited. The theorem is true.
+\end{frame}
+
+\begin{frame}[fragile]{Step 4: Evaluating \texttt{Eq(Add(2,3), 4)}}
+    Now, what about the false theorem? The Kernel calls \verb|isDefEq( Add(2,3) , 4 )|.
+    
+    1. It unleashes reductions on the Left Side. \verb|Add(2,3)| ruthlessly grinds down into \verb|S(S(S(S(S(Z)))))|.
+    
+    2. It subjects the Right Side to the grinder. \verb|4| breaks down into \verb|S(S(S(S(Z))))|.
+\end{frame}
+
+\begin{frame}[fragile]{Step 5: Failure! The Trees Diverge}
+    3. The Kernel hashes the two resulting memory trees.
+    
+    \vspace{1em}
+    \begin{center}
+        \Large \color{red} \texttt{S(S(S(S(S(Z))))) != S(S(S(S(Z))))}
+    \end{center}
+    
+    \vspace{1em}
+    The structural shapes are completely different! 
+\end{frame}
+
+\begin{frame}[fragile]{The Verdict: The Absolute Authority of the Kernel}
+    Because they represent divergent physical structures in memory, \verb|isDefEq| fails.
+    
+    The Kernel mathematically concludes that the Type \verb|Eq(Add(2,3), 4)| is completely uninhabitable. It rejects the payload, throwing a \textbf{Type Error}.
+    
+    This exact mechanism—relying on pure structural reduction to primitive data bits rather than loose categorical tags—is why the Lean Kernel holds the ultimate authority on mathematical truth.
+\end{frame}
+
+\begin{frame}[standout]
+    Questions?
+\end{frame}
+
+\end{document}
