@@ -1,0 +1,779 @@
+\documentclass[10pt]{beamer}
+\usetheme[progressbar=frametitle]{metropolis}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{setspace}
+
+\title{Type Checking in Lean}
+\subtitle{Type Theory and Formal Verification: An Exhaustive Analysis}
+\author{Anuj Jha}
+\institute{IIT Bombay}
+\date{\today}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+\begin{frame}{Type Theory and Formal Verification: An Exhaustive Analysis of Type Checking ...}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item The Epistemological Foundation of Formal Verification The transition from empirical software testing to the mathematical discipline of formal verification represents a fundamental shift in how correctness is established within computational systems.
+  \item In traditional software engineering, testing frameworks provide a localized guarantee by demonstrating the absence of failure under specific, finite conditions.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Type Theory and Formal Verification: An Exhaustive Analysis of Type Checking ...}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item However, testing is intrinsically limited by the impossibility of exploring an infinite state space.
+  \item In contrast, formal verification leverages mathematical proofs to guarantee the absolute impossibility of failure across all defined states, rendering correctness a mathematically proven theorem rather than a statistical likelihood.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Type Theory and Formal Verification: An Exhaustive Analysis of Type Checking ...}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item This paradigm shift demands a specialized infrastructure capable of encoding both mathematical theorems and software specifications uniformly.
+  \item The Lean theorem prover, an interactive proof assistant and functional programming language, sits at the absolute vanguard of this discipline.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Type Theory and Formal Verification: An Exhaustive Analysis of Type Checking ...}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Developed originally by researchers at Microsoft Research and Carnegie Mellon University, Lean has evolved into Lean 4, a system that fundamentally erases the boundary between a theorem prover and a general-purpose programming language compiled to highly efficient C code.
+  \item The reliability of Lean's verification is derived from its deep integration of dependent type theory, an expressive logical framework that allows mathematical assertions and programmatic types to be treated as identical constructs.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Type Theory and Formal Verification: An Exhaustive Analysis of Type Checking ...}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item To fully comprehend how Lean evaluates mathematical and programmatic expressions, one must delve deeply into the mechanics of its type checker.
+  \item When a user inputs a mathematical statement such as $2 + 3 = 5$, Lean does not evaluate this as a runtime boolean expression yielding a simple true or false result, as is the standard operating procedure in dynamically typed languages like Python.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Type Theory and Formal Verification: An Exhaustive Analysis of Type Checking ...}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Instead, Lean treats the equation as a complex compile-time type inhabitation problem.
+  \item Understanding this profound divergence requires an exhaustive traversal of the history of type theory, the Curry-Howard isomorphism, the architectural dichotomy between macro-elaboration and kernel verification, and the specific reduction algorithms governing definitional equality.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{2}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item A Comprehensive Crash Course in Type Theory To understand the internal mechanics of Lean’s type checking, it is strictly necessary to establish the theoretical scaffolding upon which the entire system rests.
+  \item Type theory was not originally created for computer science; it originated as a foundational mechanism in mathematics to circumvent the paradoxes inherent in naive set theory, most notably Russell's paradox, by enforcing a strict hierarchy and categorization of mathematical objects.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{2}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Over decades, this mathematical framework became the bedrock of functional programming and automated reasoning.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item 2.1 The Evolution from Untyped to Simply Typed Lambda Calculus The foundational calculus of modern computation is the untyped lambda calculus ($\lambda$-calculus), introduced by the logician Alonzo Church in the 1930s.
+  \item It relies on a minimalist syntactic structure comprising merely variables (e.g., $x$), function abstraction ($\lambda x. t$), and function application ($t_1 t_2$).
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item While Turing-complete and capable of expressing any computable function, the untyped $\lambda$-calculus allows for unrestricted application.
+  \item A function can be applied to itself, leading to paradoxical, non-terminating terms that mirror the logical inconsistencies found in unrestricted set theory.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item To introduce mathematical discipline and guarantee termination, Church formalized the simply typed lambda calculus ($\lambda^{\to}$).
+  \item In this refined system, every term possesses an intrinsic, immutable type, and function applications are strictly validated against these types.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item If an entity $f$ represents a function mapping elements of type $A$ to elements of type $B$ (denoted as $A \to B$), and $x$ is a term of type $A$, then the application $f(x)$ is deemed well-typed and logically possesses the type $B$.
+  \item Any attempt to apply $f$ to a term of type $C$ results in an immediate failure.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item This canonical framework introduced the foundational mechanism of formal syntax that defines modern proof assistants: the typing judgment.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item 2.2 Contexts, Typing Judgments, and Inference Rules Modern type theory is manipulated and formalized through a highly specific set of rules governing logical judgments.
+  \item A standard typing judgment typically assumes the following formal notation:$$\Gamma \vdash t : A$$
+This notation asserts that under the specific context $\Gamma$ (which consists of a finite list of known variable declarations, such as $x_1 : A_1, x_2 : A_2, \dots, x_n : A_n$), the computational term $t$ is well-typed and definitively possesses the type $A$.A formal type theory defines mathematical objects and logical connectives by providing four primary categories of inference rules for every type constructor within the system :Inference Rule Category Theoretical Purpose and Mechanism Formation Rules Dictate exactly how to construct new, valid types from existing ones.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item For example, if $A$ and $B$ are established types, the formation rule guarantees that $A \to B$ is a newly valid type.
+  \item Introduction Rules Define how to construct (or logically "inhabit") terms of a newly formed type.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item For the function type $A \to B$, the introduction rule is lambda abstraction: if under the assumption that $x$ is of type $A$, the term $t$ has type $B$ ($\Gamma, x:A \vdash t:B$), then the overall function $\lambda x. t$ has type $A \to B$.Elimination Rules Define how to logically use, consume, or deconstruct a term of a given type.
+  \item For functions, the elimination rule is function application, corresponding directly to the logical principle of modus ponens.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Computation Rules Specify exactly how elimination rules interact with introduction rules to simplify terms.
+  \item This is primarily known as reduction, which dictates how the application of a function to an argument evaluates to a simpler form.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item 2.4 The Leap to Dependent Type Theory While simply typed systems are suitable for basic programming languages, rigorous mathematical reasoning requires types that can dynamically depend on specific runtime or compile-time terms.
+  \item This requirement led to the creation of Dependent Type Theory (DTT).
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item In DTT, a type is not merely a static identifier; it can be parameterized by a value.
+  \item A classic example is the type representing a vector.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Rather than a generic list, a dependent vector type specifies its exact length as part of its type signature, such as Vector \textbackslash alpha n, where $n$ is a specific term of type Nat.
+  \item The type fundamentally transforms based on the variable $n$, allowing the type checker to enforce array bounds at compile time.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Dependent type theory relies upon two paramount type constructors that elevate it beyond simple lambda calculus:The Dependent Product Type, commonly referred to as a $\Pi$ type, is the extreme generalization of standard function types $A \to B$.
+  \item If the return type $B$ directly depends on the specific input value $x$ of type $A$, the function's type is formally written as $\Pi (x : A), B(x)$.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item When a function of this dependent type is applied to a specific term $a$ of type $A$, the resulting type dynamically resolves to $B(a)$.
+  \item In the Lean theorem prover, the logical concept of universal quantification ($\forall x : A, P(x)$) is mathematically identical to, and implemented as, a $\Pi$ type.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item The Dependent Sum Type, known as a $\Sigma$ type, serves as the generalization of standard pair or product types $A \times B$.
+  \item A dependent pair consists of a primary value $a$ of type $A$ and a secondary value $b$ of type $B(a)$, where the specific type of the second element depends entirely on the exact value of the first element.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item In constructive logic, this structure perfectly aligns with existential quantification ($\exists x : A, P(x)$), as proving an existential requires providing a specific witness ($a$) and a subsequent proof that the specific witness satisfies the property ($B(a)$).
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item 2.5 Universes, Paradoxes, and the Calculus of Inductive Constructions Because types in dependent type theory can themselves be treated as standard terms (for instance, passing a specific type as an argument to a polymorphic function like a List constructor), it logically follows that types must themselves possess types.
+  \item However, allowing a type to contain itself as its own type (often referred to as Type : Type) introduces severe logical inconsistencies.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Historically, Per Martin-Löf explored a system with this specific property, but he subsequently proved that it resulted in a non-normalizing and fundamentally inconsistent system, closely mirroring Girard's paradox.
+  \item To prevent these paradoxes, Lean implements a strict, countably infinite hierarchy of universes based on the Calculus of Inductive Constructions (CIC).
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Within Lean's architecture, these universes are denoted by the foundational primitive Sort u, where u represents a specific universe level.
+  \item The universe Prop (syntactic sugar for Sort 0) is the absolute bottom of the type hierarchy and serves as the universe of all logical propositions.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item The universe Type 0 (or simply Type, which is syntactic sugar for Sort 1) is the universe that contains all standard, computationally relevant data types, including natural numbers (Nat), booleans (Bool), and strings.
+  \item The hierarchy continues infinitely upward, with Type 1 (Sort 2) containing Type 0 and polymorphic types quantifying over Type 0.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item More generally, Type u serves as an abbreviation for Sort (u + 1).
+  \item This rigid stratification guarantees that no type can ever serve as its own type, thereby preserving the logical consistency and normalization properties of the theorem prover.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{3}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item The Curry-Howard Isomorphism: Propositions as Types The central philosophical and architectural pillar of interactive theorem proving in Lean is the Curry-Howard correspondence.
+  \item This foundational principle reveals a profound mathematical isomorphism between constructive logic and dependent type theory: a mathematical proposition is structurally identical to a type, and a formal proof of that mathematical proposition is structurally identical to a functional program (or term) that evaluates to that specific type.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{3}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item This paradigm fundamentally erases the conceptual boundary between software engineering and theoretical mathematics.
+  \item Logic Side (Constructive Mathematics)Programming Side (Dependent Type Theory)Lean Syntax \& Interpretation Proposition ($P$)Type ($T$)P : Prop Proof of $P$Term $t$ inhabiting Type $T$t : PLogical Implication ($P \implies Q$)Function Type ($A \to B$)P $\to$ QUniversal Quantification ($\forall x \in A, P(x)$)Dependent Product Type ($\Pi x: A, P(x)$)$\forall$ x : A, P x Existential Quantification ($\exists x \in A, P(x)$)Dependent Sum Type ($\Sigma x: A, P(x)$)$\exists$ x : A, P x Logical Conjunction ($P \land Q$)Product / Tuple Type ($A \times B$)P $\land$ QLogical Disjunction ($P \lor Q$)Sum / Coproduct Type ($A + B$)P $\lor$ QTrue / Tautology ($\top$)Unit Type (Possesses exactly one inhabitant)True, proved by the term True.intro False / Contradiction ($\bot$)Empty Type (Possesses zero inhabitants)False (An uninhabited type expression)Under this paradigm, writing a proof in Lean means writing a functional program.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{3}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item For example, proving the elementary theorem $P \to Q \to P$ requires constructing a valid term of that exact type.
+  \item Utilizing standard lambda abstraction, the proof is simply written as $\lambda$ p : P, $\lambda$ q : Q, p.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{3}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item This term perfectly mirrors the definition of a constant function that takes two sequential arguments and unconditionally returns the first one.
+  \item Furthermore, Lean relies heavily on a property known as "proof irrelevance" for all types residing within the Prop universe.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{3}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item If $p : Prop$ is a given mathematical proposition, and $t_1, t_2 : p$ represent two entirely distinct proof terms asserting the truth of $p$, Lean's kernel fundamentally treats $t_1$ and $t_2$ as being definitionally equal.
+  \item Proof irrelevance guarantees that even though proofs are treated as ordinary programmable objects within the language of dependent type theory, they carry no excess computational information beyond the pure fact that the proposition is true.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{3}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item This prevents divergent proof methodologies from interfering with subsequent structural computations.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{4}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item The Architecture of Lean's Type System Pipeline Lean 4 does not attempt to evaluate dependent types and complex mathematical proofs via a single, monolithic compiler.
+  \item It achieves both vast scalability and uncompromising logical soundness by architecturally separating the complex, heuristic-driven elaboration process from the minimal, highly trusted type-checking kernel.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{4}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item When a user writes an expression in Lean, it passes through several distinct phases of transformation before it is officially verified as mathematically correct.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item 4.1 Parsing and Macro Expansion The source code is initially parsed into a highly generalized abstract syntax tree (Syntax).
+  \item Lean features a robust, hygienic macro system that allows users and library authors to define custom, domain-specific mathematical syntax.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item The macro expander iteratively reduces this syntactic sugar into a smaller set of core Lean constructs.
+  \item Macros are entirely untrusted; they are merely text-transformation tools that make the system readable for mathematicians without bloating the underlying logical foundation.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item 4.2 Elaboration and Typeclass Inference Elaboration is arguably the most complex and resource-intensive component of the Lean architecture.
+  \item Human mathematicians rarely write fully explicit mathematical terms.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item They routinely omit universe levels, type parameters, implicit arguments, and intermediate logical steps.
+  \item The elaborator's job is to fill in these profound gaps.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item It accomplishes this by generating complex unification constraints and solving them heuristically.
+  \item Furthermore, it resolves mathematical overloading via a type class inference mechanism based on tabled resolution.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item For example, when a user uses the addition operator +, the elaborator uses typeclass inference to determine if the addition pertains to natural numbers, real numbers, or abstract matrices, and subsequently outputs a fully saturated, unambiguous "pre-term" with every implicit variable explicitly defined.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item 4.3 The Trusted Kernel The fully elaborated term, which now contains no macros, no missing implicit arguments, and no unproven tactic goals, is finally submitted to the trusted kernel.
+  \item The kernel is intentionally minimalist, representing the absolute source of truth in the system.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item It does not perform any proof automation, typeclass inference, or heuristic deduction.
+  \item It solely and mechanically verifies that the submitted term strictly complies with the fundamental formation, introduction, elimination, and computation rules of the Calculus of Inductive Constructions.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Notably, to maintain a minuscule trusted code base, Lean's kernel does not even contain an internal termination checker for recursive functions, nor does it natively understand complex pattern matching.
+  \item Instead, the equation compiler—a sub-component of the elaborator—translates all complex recursive pattern-matching functions into fundamental, primitive applications of recursors (such as Nat.rec for natural numbers).
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item The kernel then verifies these primitive eliminators mechanically, ensuring absolute soundness without architectural bloat.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{5}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Equality and the Machinery of Reduction To deeply comprehend how Lean processes mathematics and verifies theorems, one must understand that the system distinguishes between two entirely distinct notions of equality: Definitional Equality and Propositional Equality.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{5.1 Propositional Equality Propositional Equality is an explicit mathematical...}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item It is formally defined within Lean's standard library as an inductive type family residing in the Prop universe :Leaninductive Eq \{$\alpha$ : Sort u\} (a : $\alpha$) : $\alpha$ $\to$ Prop where
+
+| refl : Eq a a
+The type Eq a b represents the formal mathematical proposition that $a = b$.
+  \item Because the Eq type possesses only a single constructor, refl (reflexivity), a valid proof of Eq a b can only be initially constructed if $a$ and $b$ are identical.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{5.1 Propositional Equality Propositional Equality is an explicit mathematical...}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Once a proof of Eq a b exists—often obtained by sequentially rewriting the goal using previously established theorems or hypotheses—substitution allows the mathematician to replace $a$ with $b$ anywhere in a complex mathematical expression utilizing the Eq.subst function.
+  \item If a mathematician asserts that $x + y = y + x$, this equality is strictly propositional.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{5.1 Propositional Equality Propositional Equality is an explicit mathematical...}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item The abstract expression $x + y$ cannot computationally reduce to $y + x$ because $x$ and $y$ are unbound variables.
+  \item Proving $x + y = y + x$ requires a deliberate sequence of algebraic rewrites applying the commutativity theorems of addition to generate an explicit proof term that the type checker then verifies.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item 5.2 Definitional Equality and Reduction Rules Definitional Equality, conversely, is a weaker but automated, syntactic relationship verified internally and automatically by the kernel.
+  \item Two terms are deemed definitionally equal if they naturally compute to the exact same normal form utilizing Lean's intrinsic reduction rules.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item It is an algorithmic equivalence requiring no human intervention.
+  \item For example, the expression 2 + 3 is definitionally equal to 5.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item The user is not required to provide an algebraic proof for this fact; the type checker determines it automatically by unwinding the structural definition of addition.
+  \item When the kernel attempts to ascertain if term $A$ is definitionally equal to term $B$, it applies a precise series of computational reduction rules to both terms until they either reach an identical normal form or definitively diverge.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item These reduction algorithms define the operational semantics of the type theory:Formal Reduction Rule Symbol Mechanism and Functionality within the Kernel Beta Reduction$\beta$The core computational engine of the lambda calculus.
+  \item It dictates exactly how a function abstraction is applied to an argument via substitution.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Formally defined as $(\lambda x. t) a \rightsquigarrow t[x := a]$.
+  \item Lean performs a highly optimized generalized beta reduction, gathering and substituting multiple arguments simultaneously.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Delta Reduction$\delta$Governs the explicit unfolding of definitions and theorems.
+  \item If a constant is defined (e.g., def double (x : Nat) := x + x), delta reduction mechanically replaces instances of double a with a + a during the type checking process.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Iota Reduction$\iota$The reduction of recursors applied to inductive type constructors.
+  \item It powers primitive recursion and pattern matching execution.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item For example, applying the natural number recursor Nat.rec to a successor term Nat.succ n triggers $\iota$-reduction to unfold the next recursive logical step.
+  \item Zeta Reduction$\zeta$Controls the expansion and replacement of local let bindings within an expression.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item If a term contains the binding let x := a; t, zeta reduction replaces all occurrences of the variable x inside the sub-term t with the defined value a.
+  \item The kernel utilizes these algorithms to seamlessly and automatically identify that a term like (fun x => x + 1) 2 is definitionally equal to 3.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item If a proof requires this equality, the simple rfl tactic is sufficient, as the kernel computes the equivalence without requiring explicit rewrite instructions.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{6}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Type Systems in Contrast: Lean versus Python The divergence in how Lean and a traditional programming language like Python evaluate a fundamental mathematical statement such as 2 + 3 = 5 (written as 2 + 3 == 5 in Python) highlights the profound epistemological discrepancy between dynamically typed evaluation engines and dependently typed formal verification systems.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{6.1 Dynamic Typing and Runtime Introspection Python is fundamentally an inter...}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Types in Python are entirely bound to runtime values in memory, not to statically named variables or identifiers.
+  \item When the standard CPython interpreter encounters the expression 2 + 3 == 5, it performs an imperative, temporal operational sequence :First, the interpreter parses the input string into an Abstract Syntax Tree (AST).
+\end{itemize}
+\end{frame}
+
+\begin{frame}{6.1 Dynamic Typing and Runtime Introspection Python is fundamentally an inter...}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item The characters 2, 3, and 5 are instantiated in memory as primitive integer objects.
+  \item The + symbol is dynamically recognized as a call to the \_\_add\_\_ magic method operation belonging to the integer class, and == is routed to the \_\_eq\_\_ operation.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{6.1 Dynamic Typing and Runtime Introspection Python is fundamentally an inter...}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Second, the Python virtual machine evaluates the AST at runtime.
+  \item It executes the memory-bound operation 2 + 3, producing an entirely new integer object representing 5, stored at a new memory address.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{6.1 Dynamic Typing and Runtime Introspection Python is fundamentally an inter...}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Third, the interpreter evaluates the boolean equivalence operation 5 == 5.
+  \item Because the internal values of the two objects are equivalent, the interpreter yields and returns the singleton boolean object True.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{6.1 Dynamic Typing and Runtime Introspection Python is fundamentally an inter...}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item In Python, 2 + 3 == 5 is an imperative programmatic instruction that strictly evaluates to a runtime primitive value (True or False).
+  \item The ultimate type of the entire expression is bool.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{6.1 Dynamic Typing and Runtime Introspection Python is fundamentally an inter...}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item The interpreter performs virtually no static verification of this fact prior to the exact moment of execution; if the statement were x + 3 == 5 and the variable x had been dynamically reassigned to a string object earlier in the script, the system would simply crash with a runtime Type Error rather than failing at a pre-compilation static check.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{6.2 The Professor's Example: The Stack Machine vs}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Compile-Time Verification This distinction is crystallized when analyzing the specific educational examples used in theoretical computer science curricula to teach virtual machine execution.
+  \item A paradigmatic example of runtime evaluation is found in Professor Michael Kohlhase's General Computer Science (Gen CS) course notes, which construct an abstract stack-based Virtual Machine (VM) to evaluate expressions.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{6.2 The Professor's Example: The Stack Machine vs}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item In the Gen CS VM model, computing an arithmetic expression relies entirely on runtime stack manipulation.
+  \item The language provides control operators like con i (which pushes an integer $i$ onto the stack), add (which pops two values, adds them, and pushes the result), leq (which pops two values and pushes 1 if the first is less than or equal to the second, or 0 otherwise), and cjp (conditional jump).Within this framework, evaluating a condition like 1 <= 2 compiles to con 2, con 1, leq.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{6.2 The Professor's Example: The Stack Machine vs}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item The machine processes this imperatively.
+  \item The notes explicitly define the cjp instruction as a "jump on false-type expression".
+\end{itemize}
+\end{frame}
+
+\begin{frame}{6.2 The Professor's Example: The Stack Machine vs}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item If the value dynamically evaluated and resting on top of the stack is 0 (representing false), the machine intercepts this "false-type expression" and alters the program counter to branch the execution path.
+  \item This VM model perfectly mirrors Python's underlying execution philosophy: boolean expressions are evaluated step-by-step at runtime, producing an ephemeral value in memory (a 1 or a 0 on the stack, or a True/False object in a heap) which is then immediately consumed by a control flow mechanism.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{7}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item The Propositional Interpretation: Analyzing 2+3=5 and 2+3=6 in Lean In stark contrast to the Gen CS virtual machine and Python's interpreter, Lean operates entirely under the propositions-as-types paradigm.
+  \item When a Lean user writes the code 2 + 3 = 5, the system fundamentally does not "evaluate" it to a boolean True or push a 1 onto a virtual machine stack.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{7}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Instead, Lean recognizes the expression strictly as a static type declaration.
+  \item During parsing, Lean's elaborator translates 2 + 3 = 5 into its core inductive form: Eq Nat (Nat.add 2 3) 5.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{7}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item The elaborator checks if this statement is well-formed.
+  \item Since Nat.add 2 3 and 5 are both evaluated as having the type Nat, the expression is deemed a valid application of the Eq constructor.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{7}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item The expression Eq Nat (Nat.add 2 3) 5 is then categorized securely into the universe Prop (i.e., Sort 0).At this precise architectural point, Lean has only established that 2 + 3 = 5 is a mathematically valid proposition.
+  \item To formally prove that it is mathematically correct, the user must provide a programmatic term that successfully inhabits this type.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{7}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item If the user writes:Leanexample : 2 + 3 = 5 := rfl
+The tactic rfl commands the elaborator to attempt to supply the term Eq.refl \_.
+  \item When the trusted kernel type-checks this application, it proceeds through its reduction machinery:
+The kernel inspects the exact type expected: Eq Nat (Nat.add 2 3) 5.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{7}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item It utilizes $\delta$ (definition) and $\iota$ (recursor) reduction rules to compute the normal form of Nat.add 2 3.
+  \item Because addition on natural numbers is defined inductively, Nat.add 2 3 reduces systematically to Nat.succ (Nat.add 1 3), then to Nat.succ (Nat.succ (Nat.add 0 3)), and finally to Nat.succ (Nat.succ 3).
+\end{itemize}
+\end{frame}
+
+\begin{frame}{7}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item By definition, Nat.succ (Nat.succ 3) is the exact structural composition of the integer 5.
+  \item The type checker dynamically simplifies the target type to Eq Nat 5 5.The provided term, Eq.refl 5, strictly and unconditionally inhabits the type Eq Nat 5 5.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{7}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Because the expected type and the provided type are now definitionally equal, the kernel accepts the term, and the proof is complete.
+  \item The "truth" of 2 + 3 = 5 is not a runtime boolean object; it is statically verified at compile time through the successful type checking of an exactingly constructed proof term.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item 7.1 The True Nature of a "False Type Expression"The discrepancy between a runtime virtual machine and a theorem prover becomes philosophically profound when analyzing an incorrect mathematical statement, such as 2 + 3 = 6.In Python or the Gen CS stack machine, the interpreter evaluates 2 + 3, obtains 5, evaluates 5 == 6, pushes a 0 to the stack, and immediately returns a False runtime object.
+  \item The expression is perfectly valid imperative code; it simply evaluates to a negative boolean state used for branching.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item In Lean, writing the code 2 + 3 = 6 constructs the formal type Eq Nat (Nat.add 2 3) 6.
+  \item Crucially, in dependent type theory, this expression remains a perfectly valid type.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item It successfully passes the formation rules of the type system and is categorized accurately as a valid proposition residing in the Prop universe.
+  \item The elaborator accepts it, and it does not cause a syntax or type formation error.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item However, it is an inherently and permanently uninhabited type.
+  \item There is no structural term in the entire Lean universe that can be constructed to inhabit Eq Nat 5 6.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Because 5 and 6 are distinct constructors of the inductive Nat type (specifically, they diverge structurally at the succ constructor chain), they can never be reduced to be definitionally equal.
+  \item Therefore, the reflexivity constructor Eq.refl can never be applied.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item In the precise terminology of constructive logic and dependent type theory, an uninhabited type is structurally equivalent to the concept of logical contradiction, denoted as $\bot$ (False).
+  \item If a user attempts to force a proof via:Leanexample : 2 + 3 = 6 := rfl
+The Lean kernel will halt compilation and throw a fatal error.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item The error message will explicitly state a type mismatch: the kernel expected a term of type 2 + 3 = 6 but received an expression (Eq.refl) that cannot possibly unify with it because 5 is not definitionally equal to 6.The failure occurs exclusively at compile time during static type checking, never at runtime.
+  \item The proposition 2 + 3 = 6 acts as a literal "false type expression"—a perfectly well-formed syntactic construction representing a type that logically maps to an empty set, possessing zero possible inhabitants.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Analytical Dimension Dynamic Execution Model (Python / Gen CS VM)Dependent Type Theory Model (Lean 4)Foundational Discipline Dynamically typed, interpreted execution utilizing duck-typing.
+  \item Statically typed, rigorously enforced via the Calculus of Inductive Constructions.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Nature of the Expression 2+3==5An imperative instruction set resulting in a primitive memory value.
+  \item A structural type declaration mapping directly to the Prop universe.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Execution Phase Evaluated at runtime by a Virtual Machine manipulating a stack or heap.
+  \item Verified entirely at compile-time via kernel unification and logical reduction.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Result of Evaluating 2+3==5Pushes a 1 to the stack or returns a boolean True object.
+  \item The logical term Eq.refl 5 successfully inhabits the required type.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Result of Evaluating 2+3==6Returns a boolean False object; program execution continues normally.
+  \item Constitutes a valid but definitively uninhabited type.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Lean Type Checking Context}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Fails type-checking instantly when a proof is attempted.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{8}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Conclusion The operational mechanics of type checking in the Lean theorem prover expose a rigorous, uncompromising fusion between theoretical mathematics and computer science.
+  \item By implementing the Calculus of Inductive Constructions and strictly adhering to the Curry-Howard isomorphism, Lean completely transcends the epistemological limitations of traditional, dynamically typed languages like Python and classical virtual machine paradigms.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{8}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Where imperative execution models treat numerical equality as an ephemeral runtime comparison yielding a temporary boolean state used for branching logic, Lean fundamentally interprets mathematical equations as dependent types residing within an explicit, logically consistent hierarchy of universes.
+  \item Through the interconnected mechanisms of hygienic macro expansion, heuristic constraint unification, and trusted, minimalist kernel verification, Lean ensures that logical truth is strictly synonymous with type inhabitation.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{8}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item The algorithmic application of $\beta, \delta, \iota,$ and $\zeta$ reduction algorithms allows the foundational kernel to establish definitional equality autonomously.
+  \item This frees the mathematician to focus on proving complex propositional equalities, secure in the knowledge that the underlying system prevents any logical paradox.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{8}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Ultimately, understanding precisely why Lean treats an expression like 2+3=5 as a static proposition rather than a runtime boolean perfectly encapsulates the primary directive of formal verification: to transform the pursuit of computational truth from an unreliable process of empirical observation into an inviolable, statically enforced mathematical guarantee.
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{9. The Metaprogramming Paradigm in Lean 4}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Lean 4 introduces a revolutionary approach to metaprogramming by allowing the entire compiler and syntax extension system to be written in Lean itself.
+  \item Unlike Lean 3, where metaprogramming was a bolted-on feature using a specialized monad, Lean 4 exposes its internal C++ data structures directly.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{9. The Metaprogramming Paradigm in Lean 4}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item This allows users to define custom syntax, macros, and elaborators that operate at the exact same performance level as the core compiler natively.
+  \item The Syntax object in Lean 4 is a highly optimized tree structure that can represent arbitrarily complex, domain-specific languages seamlessly.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{9. The Metaprogramming Paradigm in Lean 4}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item When writing tactic proofs, a mathematician is fundamentally interacting with a deeply embedded state monad that manipulates the local context and the target goal.
+  \item Because Lean 4 is compiled ahead-of-time (AOT) to highly optimized C code, these tactics run orders of magnitude faster than in interpreted proof assistants.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{9. The Metaprogramming Paradigm in Lean 4}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item This performance leap enables the seamless integration of heavy automation, such as SAT solvers and SMT solvers, directly within the trusted kernel's reach.
+  \item Ultimately, Lean 4's metaprogramming capabilities erase the boundaries between user, library developer, and language designer.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{10. The Equation Compiler and Termination Checking}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item While dependent type theory provides a robust logical foundation, writing practical programs demands the ability to define functions via complex pattern matching.
+  \item The Lean equation compiler is the heuristic engine responsible for translating high-level, human-readable pattern matching syntax into low-level recursor applications.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{10. The Equation Compiler and Termination Checking}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item This translation is mathematically non-trivial because the core Calculus of Inductive Constructions (CIC) only natively understands primitive eliminators.
+  \item When a user writes a recursive function, the equation compiler must first prove that the pattern matching is exhaustive—that every possible constructor combination has been explicitly handled.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{10. The Equation Compiler and Termination Checking}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item If a case is missing, the compiler will construct a counter-example to demonstrate the failure of exhaustiveness.
+  \item Furthermore, to maintain logical consistency and prevent non-terminating proofs, Lean strictly enforces a termination checker on all recursive definitions.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{10. The Equation Compiler and Termination Checking}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item The checker attempts to synthesize a well-founded relation (typically structural subterm reduction or a user-provided decreasing measure) to guarantee the function eventually halts.
+  \item Functions that fail the termination checker can still be defined using the partial keyword, but they are subsequently barred from being used in logical proofs to preserve soundness.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{11. Tactical Automation: The Future of Proofs}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item The usability of an interactive theorem prover is directly proportional to the strength and transparency of its tactical automation.
+  \item Lean's simp tactic is a powerful rewriting engine that uses a highly optimized discrimination tree to rapidly apply thousands of user-registered simplification lemmas.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{11. Tactical Automation: The Future of Proofs}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item The simplifier does not blindly apply rewrites; it meticulously traverses the expression tree, dynamically handling dependent variables and universe constraints.
+  \item Beyond simple rewriting, Lean is increasingly integrating machine learning and large language models (LLMs) to suggest tactic steps dynamically.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{11. Tactical Automation: The Future of Proofs}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item Projects like Lean Copilot and Aesop utilize deep neural networks trained on Mathlib to predict the most statistically probable proof steps for a given logical goal.
+  \item Aesop (Automated Extensible Search for Obvious Proofs) provides a revolutionary best-first search algorithm that combines rule-based heuristics with probabilistic branching.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{11. Tactical Automation: The Future of Proofs}
+\begin{itemize}\setlength{\itemsep}{1.5em}
+  \item This synergy between rigorous formal verification and statistical AI represents the cutting edge of mathematical research infrastructure.
+  \item As Mathlib continues to grow exponentially, the reliance on these advanced automation tools will become absolute, transitioning Lean from an interactive assistant to a true automated mathematician.
+\end{itemize}
+\end{frame}
+
+\end{document}

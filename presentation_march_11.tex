@@ -1,0 +1,260 @@
+\documentclass[12pt, aspectratio=169]{beamer}
+\usetheme[progressbar=frametitle]{metropolis}
+\usecolortheme{whale}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{setspace}
+
+\title{Type Checking in Lean}
+\subtitle{Type Theory and Formal Verification: A Comprehensive Overview}
+\author{Academic Presentation}
+\institute{Study of Lean 4 Architecture}
+\date{March 11, 2026}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{Outline}
+  \tableofcontents[hideallsubsections]
+\end{frame}
+
+\section{1. The Epistemological Foundation}
+
+\begin{frame}{Empirical Testing vs. Formal Verification}
+\begin{itemize}\setlength{\itemsep}{1.2em}
+  \item \textbf{Software Testing}: Provides a localized guarantee. Demonstrates the absence of failure under specific, finite conditions.
+  \item \textbf{Limitation}: Intrinsically limited by the impossibility of exploring an infinite state space.
+  \item \textbf{Formal Verification}: Leverages mathematical proofs to guarantee the absolute impossibility of failure across all defined states.
+  \item Correctness becomes a mathematically proven theorem rather than a statistical likelihood.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{The Lean 4 Vanguard}
+\begin{itemize}\setlength{\itemsep}{1.2em}
+  \item \textbf{Lean 4}: An interactive theorem prover and functional programming language.
+  \item Developed by researchers at Microsoft Research and Carnegie Mellon University.
+  \item Fundamentally erases the boundary between a theorem prover and a general-purpose programming language.
+  \item Compiles to highly efficient C code safely.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Compile-Time Type Inhabitation}
+\begin{itemize}\setlength{\itemsep}{1.2em}
+  \item In dynamically typed languages (like Python), $2 + 3 = 5$ evaluates to a runtime boolean \texttt{True}.
+  \item In Lean, $2 + 3 = 5$ is treated as a complex \textit{compile-time type inhabitation problem}.
+  \item Understanding this divergence requires traversing type theory, the Curry-Howard isomorphism, and internal reduction algorithms.
+\end{itemize}
+\end{frame}
+
+\section{2. A Crash Course in Type Theory}
+
+\begin{frame}{The Untyped $\lambda$-Calculus}
+\begin{itemize}\setlength{\itemsep}{1.2em}
+  \item \textbf{Untyped $\lambda$-calculus}: Introduced by Alonzo Church (1930s).
+  \item Comprises variables ($x$), function abstraction ($\lambda x. t$), and application ($t_1 t_2$).
+  \item Turing-complete, but allows unrestricted application.
+  \item \textbf{The Problem}: Evaluating a function upon itself can lead to paradoxical, non-terminating terms (mirroring naive set theory inconsistencies).
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Simply Typed $\lambda$-Calculus ($\lambda^{\to}$)}
+\begin{itemize}\setlength{\itemsep}{1.2em}
+  \item To introduce discipline and guarantee termination, Church formalized the simply typed lambda calculus.
+  \item Every term possesses an intrinsic, immutable type.
+  \item Function applications are strictly validated against these types.
+  \item If $f : A \to B$ and $x : A$, then $f(x) : B$. Otherwise, it fails immediately.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Typing Judgments and Inference Rules}
+\begin{itemize}\setlength{\itemsep}{1.2em}
+  \item \textbf{Typing Judgment}: $\Gamma \vdash t : A$ 
+  \item "Under context $\Gamma$, term $t$ possesses type $A$."
+  \item A formal type theory defines mathematical objects via four rules:
+  \begin{enumerate}
+      \item \textbf{Formation}: How to construct new types.
+      \item \textbf{Introduction}: How to construct (inhabit) terms of a new type.
+      \item \textbf{Elimination}: How to logically use or consume a term.
+      \item \textbf{Computation}: How elimination interacts with introduction (reduction).
+  \end{enumerate}
+\end{itemize}
+\end{frame}
+
+\section{3. Dependent Type Theory (DTT)}
+
+\begin{frame}{The Leap to Dependent Types}
+\begin{itemize}\setlength{\itemsep}{1.2em}
+  \item Simply typed systems are insufficient for rigorous mathematical reasoning.
+  \item \textbf{Dependent Type Theory (DTT)}: Types can dynamically depend on runtime or compile-time values.
+  \item \textbf{Example}: A generic \texttt{List} vs. a \texttt{Vector $\alpha$ n}. The type depends on the specific variable $n$ of type \texttt{Nat}, allowing strict array bounds checking at compile time!
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Paramount Type Constructors in Lean}
+\begin{itemize}\setlength{\itemsep}{1.2em}
+  \item \textbf{Dependent Product ($\Pi$ type)}:
+  \begin{itemize}
+      \item Generalizes function types $A \to B$. The return type $B$ depends on input value $x$.
+      \item Formally: $\Pi (x : A), B(x)$.
+      \item Directly translates to Universal Quantification ($\forall x : A, P(x)$).
+  \end{itemize}
+  \item \textbf{Dependent Sum ($\Sigma$ type)}:
+  \begin{itemize}
+      \item Generalizes tuple types $A \times B$. Type of 2nd element depends on 1st element.
+      \item Directly translates to Existential Quantification ($\exists x : A, P(x)$).
+  \end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Universes and Paradoxes}
+\begin{itemize}\setlength{\itemsep}{1.2em}
+  \item If types behave like standard terms, do they have types themselves?
+  \item Allowing \texttt{Type : Type} introduces Girard's Paradox (fatal logical inconsistency).
+  \item Lean implements a strict, countably infinite hierarchy of universes: \textbf{Calculus of Inductive Constructions (CIC)}.
+  \item \texttt{Prop (Sort 0)}: Logical propositions.
+  \item \texttt{Type 0 (Sort 1)}: Data types (Nat, Bool).
+  \item \texttt{Type 1 (Sort 2)}: Polymorphic types quantifying over \texttt{Type 0}.
+\end{itemize}
+\end{frame}
+
+\section{4. The Curry-Howard Isomorphism}
+
+\begin{frame}{Propositions as Types}
+\begin{itemize}\setlength{\itemsep}{1.2em}
+  \item The architectural pillar of interactive theorem proving.
+  \item A profound mathematical isomorphism between constructive logic and dependent programming.
+  \item \textbf{Mathematical Proposition $P$} $\iff$ \textbf{Type $T$}
+  \item \textbf{Formal Proof of $P$} $\iff$ \textbf{Term $t$ inhabiting Type $T$}
+  \item Writing a formal proof in Lean is structurally identical to writing a functional program!
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Logic-to-Type Dictionary}
+\begin{table}[]
+\begin{tabular}{ll}
+\textbf{Constructive Logic}          & \textbf{Dependent Type Theory} \\ \hline
+Proposition ($P$)                    & Type ($T$)                     \\
+Proof of $P$                         & Term $t$ inhabiting Type $T$   \\
+Implication ($P \implies Q$)         & Function Type ($A \to B$)      \\
+Universal Quant. ($\forall x, P(x)$) & Dependent Product ($\Pi$ type) \\
+Existential Quant. ($\exists x, P(x)$) & Dependent Sum ($\Sigma$ type)  \\
+Conjunction ($P \land Q$)            & Product / Tuple Type ($A \times B$) \\
+True / Tautology ($\top$)            & Unit Type                      \\
+False / Contradiction ($\bot$)       & Empty Type                     \\ \hline
+\end{tabular}
+\end{table}
+\end{frame}
+
+\begin{frame}{Proof Irrelevance}
+\begin{itemize}\setlength{\itemsep}{1.2em}
+  \item Consider a mathematical proposition $p : Prop$.
+  \item If $t_1, t_2 : p$ represent two entirely distinct proof terms asserting the truth of $p$, Lean fundamentally treats $t_1$ and $t_2$ as definitionally equal.
+  \item \textbf{Proof Irrelevance} guarantees that proofs carry no excess computational baggage beyond the pure fact that the proposition is true, aiding massive performance scaling.
+\end{itemize}
+\end{frame}
+
+\section{5. Lean's Pipeline Architecture}
+
+\begin{frame}{Separation of Concerns}
+Lean 4 achieves vast scalability by architecturally separating complex heuristic elaboration from the minimal, highly trusted type-checking kernel.
+\begin{enumerate}\setlength{\itemsep}{1.0em}
+  \item \textbf{Macro Expansion}: Reduces syntactic sugar to core constructs.
+  \item \textbf{The Elaborator}: Resource-intensive component that fills in profound gaps, infers implicit arguments, resolves type classes, and generates a fully saturated "pre-term".
+\end{enumerate}
+\end{frame}
+
+\begin{frame}{The Trusted Kernel}
+\begin{itemize}\setlength{\itemsep}{1.2em}
+  \item The fully elaborated term is submitted to the trusted C++ kernel.
+  \item \textbf{The Kernel is absolutely minimalist}. It represents the final source of truth.
+  \item It performs no automation, typeclass inference, or heuristic deduction.
+  \item It solely and mechanically verifies that the term complies with the fundamental formation and computation rules of CIC.
+\end{itemize}
+\end{frame}
+
+\section{6. Machinery of Reduction}
+
+\begin{frame}{Propositional vs. Definitional Equality}
+\begin{itemize}\setlength{\itemsep}{1.2em}
+  \item \textbf{Propositional Equality}: An explicit mathematical statement (\texttt{Eq a b}). Requires algebraic rewrites via theorems to generate an explicit proof term. (e.g., $x + y = y + x$).
+  \item \textbf{Definitional Equality}: A weaker but automated syntactic relationship. Two terms compute to the exact same normal form via Lean's algorithms. (e.g., $2 + 3$ is definitionally equal to $5$).
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Reduction Algorithms}
+To establish definitional equality autonomously, the kernel utilizes:
+\begin{itemize}\setlength{\itemsep}{1.2em}
+  \item \textbf{$\beta$-Reduction}: Core mechanism of lambda calculus. Substitutes variables in function applications.
+  \item \textbf{$\delta$-Reduction}: Mechanically unwinds and expands explicit definitions.
+  \item \textbf{$\iota$-Reduction}: Unfolds primitive recursors applied to inductive constructors (powers pattern matching execution).
+  \item \textbf{$\zeta$-Reduction}: Expands local \texttt{let} bindings.
+\end{itemize}
+\end{frame}
+
+\section{7. Python Run-time vs Lean Static Proofs}
+
+\begin{frame}{Dynamic Interpreter Constraints}
+\begin{itemize}\setlength{\itemsep}{1.2em}
+  \item In Python, \texttt{2 + 3 == 5} is interpreted temporally at execution.
+  \item The VM mathematically creates a new object $5$, evaluates $5 == 5$, and pushes a \texttt{True} boolean singleton.
+  \item The statement evaluates to a runtime primitive boolean entirely detached from static source code safety.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{The Propositional Interpretation in Lean}
+\begin{itemize}\setlength{\itemsep}{1.2em}
+  \item Lean views \texttt{2 + 3 = 5} strictly as a static type declaration: \texttt{Eq Nat (Nat.add 2 3) 5}.
+  \item Writing \texttt{rfl} provides the proof term \texttt{Eq.refl \_}.
+  \item The Kernel uses $\delta$ and $\iota$ rules to reduce \texttt{Nat.add 2 3} structurally to `Nat.succ (Nat.succ 3)`, which happens to be exactly the integer 5.
+  \item Types match, type-check succeeds. The truth is verified completely unconditionally at compile-time.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{False Type Expressions}
+\begin{itemize}\setlength{\itemsep}{1.2em}
+  \item In Python, \texttt{2 + 3 == 6} produces the boolean \texttt{False} at runtime to branch logic.
+  \item In Lean, writing \texttt{2 + 3 = 6} successfully constructs a perfectly valid type: \texttt{Eq Nat 5 6}\dots
+  \item \textbf{But it is inherently uninhabited}. Logical contradiction ($\bot$).
+  \item You physically cannot apply a constructor to inhabit it, failing compilation instantly. Truth is forever bound to type inhabitation.
+\end{itemize}
+\end{frame}
+
+\section{8. Advanced Capabilities}
+
+\begin{frame}{The Equation Compiler \& Metaprogramming}
+\begin{itemize}\setlength{\itemsep}{1.2em}
+  \item \textbf{Equation Compiler}: Safely translates human-readable recursive pattern matching syntax heavily down into primitive kernel eliminators. It enforces strict structural termination to maintain logic consistency.
+  \item \textbf{Lean 4 Metaprogramming}: Exposes internal C++ data structures via Lean itself, allowing users to define perfectly optimized custom syntax and solvers natively without external tools.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Tactical Automation \& The Future}
+\begin{itemize}\setlength{\itemsep}{1.2em}
+  \item Lean heavily leans on advanced tactics like \texttt{simp} via discrimination trees.
+  \item Beyond pure algorithms, machine learning integrations like \textbf{Aesop} use neural networks to predict statistically probable proof steps on Mathlib.
+  \item The synergy between rigorous formal verification and statistical AI marks the transition into true automated mathematics.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Conclusion}
+\begin{itemize}\setlength{\itemsep}{1.2em}
+  \item Lean is more than a theorem prover; it's a bridge fusing mathematics and software engineering directly onto the Calculus of Inductive Constructions.
+  \item Moving past empirical runtime observation into mathematically impenetrable compile-time guarantees is exactly the future of computing.
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+  \begin{center}
+      {\Huge \textbf{Thank You}} \\
+      \vspace{1em}
+      {Questions?}
+  \end{center}
+\end{frame}
+
+\end{document}
